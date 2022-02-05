@@ -432,3 +432,86 @@ const styles = StyleSheet.create({
 
 export default App;
 ```
+
+## 스위프트로 네이티브 모듈 작성하기
+`NativeModuleWorkshop` 폴더 에 swift 파일 생성하기
+- 파일명: BirghtnessModule.swift
+- Create Briding Header 추가
+
+`ios/NativeModuleWorkshop-Bridging-Header.h`
+```h
+#import "React/RCTBridgeModule.h"
+```
+
+`ios/BrightnessModule.swift`
+```swift
+import Foundation
+
+@objc(BrightnessModule)
+class BrightnessModule : NSObject { 
+}
+```
+스위프트 모듈을 작성할때는 Object-C코드에서 이 클래스를 불러올수 있도록 @objc(모듈명)을 입력해주고 NSObject를 상속받아야한다
+
+### 모듈을 프로젝트에 등록하기
+`BrightnessModule.m` 파일 만들기
+```m
+#import "React/RCTBridgeModule.h"
+
+@interface RCT_EXTERN_REMAP_MODULE(BrightnessModule, BrightnessModule, NSObject)
+RCT_EXTERN_METHOD(
+  getBrightness: (RCTPromiseResolveBlock)resolve
+  rejecter: (RCTPromiseRejectBlock)reject
+)
+  RCT_EXTERN_METHOD(setBrightness: (CGFloat)brightness)
+@end
+```
+
+### 메서드 구현하기
+`ios/BrightnessModule.swift`
+```swift
+import Foundation
+import UIKit
+
+@objc(BrightnessModule)
+class BrightnessModule : NSObject {
+  
+  @objc
+  func constantsToExport() -> [AnyHashable : Any]! {
+    return [
+      "STRING_VALUE": "Hello World",
+      "NUMBER_VALUE": 15
+    ]
+  }
+  
+  @objc
+  func getBrightness(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    resolve(UIScreen.main.brightness)
+  }
+  
+  @objc
+  func setBrightness(_ brightness : CGFloat) {
+    print("Setting brightness to \(brightness)")
+    DispatchQueue.main.async {
+      UIScreen.main.brightness = CGFloat(0.15)
+    }
+  }
+  
+  @objc
+  static func requiresMainQueueSetup() -> Bool {
+    return true
+  }
+}
+```
+`ios/BrightnessModule.m`
+```m
+#import "React/RCTBridgeModule.h"
+
+@interface RCT_EXTERN_REMAP_MODULE(BrightnessModule, BrightnessModule, NSObject)
+RCT_EXTERN_METHOD(
+  getBrightness: (RCTPromiseResolveBlock)resolve
+  rejecter: (RCTPromiseRejectBlock)reject
+)
+  RCT_EXTERN_METHOD(setBrightness: (CGFloat)brightness)
+@end
+```
