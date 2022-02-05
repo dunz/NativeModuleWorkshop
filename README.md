@@ -243,3 +243,192 @@ const onPress = () => {
 
 1. 임의의 `Alert.js`파일을 만들고 네이티브 모듈에서 AlertModule을 가져온 뒤 export 해준다
 2. `App.js`파일에서 가져와 AlertModule에서 구현했던 alert 메소드가 잘 실행되는것을 확인할 수 있다
+
+## 코틀린으로 네이티브 모듈 만들어보기
+### 프로젝트에 코틀린 적용하기
+코틀린을 사용하기 위해 우선 안드로이드 스튜디오에서 `build.gradle`파일을 수정한다
+`android/build.gradle`
+```gradle
+buildscript {
+    ext {
+        ...
+        kotlinVersion = "1.5.0"
+    }
+    ...
+    dependencies {
+        ...
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    }
+}
+```
+
+`android/app/build.gradle`
+```gradlew
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
+}
+...
+apply plugin: "kotlin-android"
+```
+
+우측 상단의 코끼리모양 버튼 `Syns Project with Gradle File` 실행
+
+### 모듈 작성하기
+`android/app/src/main/java/com/nativemoduleworkshop/BrightnessModule.kt`
+```kotlin
+package com.nativemoduleworkshop
+
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+
+class BrightnessModule(reactContext: ReactApplicationContext): ReactContextBaseJavaModule(reactContext) {
+    override fun getName(): String {
+        return "BrightnessModule"
+    }
+
+    override fun getConstants(): MutableMap<String, Any> {
+        val constants = HashMap<String, Any>()
+        constants.put("SAMPLE_VALUE", "Hello World")
+        return constants
+    }
+
+    @ReactMethod
+    fun getBrightness(promise: Promise) {
+        val activity = currentActivity!!
+        val lp = activity.window.attributes
+        promise.resolve(lp.screenBrightness)
+    }
+
+    @ReactMethod
+    fun setBrightness(brightness: Float) {
+        val activity = currentActivity!!
+        activity.runOnUiThread {
+            val lp = activity.window.attributes
+            lp.screenBrightness = brightness
+            activity.window.attributes = lp
+        }
+    }
+}
+```
+
+### 패키지 작성하기
+`android/app/src/main/java/com/nativemoduleworkshop/BrightnessPackage.kt`
+```kotlin
+package com.nativemoduleworkshop
+
+import android.view.View
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ReactShadowNode
+import com.facebook.react.uimanager.ViewManager
+import java.util.Collections
+
+
+class BrightnessPackage: ReactPackage {
+    override fun createNativeModules(reactContext: ReactApplicationContext): MutableList<NativeModule> {
+        val modules = ArrayList<NativeModule>()
+        modules.add(BrightnessModule(reactContext))
+        return modules
+    }
+
+    override fun createViewManagers(reactContext: ReactApplicationContext): MutableList<ViewManager<View, ReactShadowNode<*>>> {
+        return Collections.emptyList()
+    }
+}
+```
+
+### 패키지 등록하기
+`android/app/src/main/java/com/nativemoduleworkshop/MainApplication.java`
+```java
+packages.add(new BrightnessPackage());
+```
+
+### 메서드 구현하기
+- 리액트 네이티브 모듈의 메서드에서 특정 값을 반환하고 싶다면 비동기적으로 반환해줘야 한다(promise 혹은 callbacks)
+- promise 혹은 callbacks
+
+promise
+```kotlin
+@ReactMethod
+fun getBrightness(promise: Promise) {
+    val activity = currentActivity!!
+    val lp = activity.window.attributes
+    promise.resolve(lp.screenBrightness)
+}
+```
+```js
+async function getBrightness() {
+  const brightness = await BrightnessModule.getBrightness();
+  console.log(brightness)
+}
+```
+
+callback
+```kotlin
+@ReactMethod
+fun getBrightness(callback: Callback) {
+    val activity = currentActivity!!
+    val lp = activity.window.attributes
+    callback.invoke(lp.screenBrightness)
+}
+```
+```js
+function getBrightness() {
+  BrightnessModule.getBrightness((brightness) = {
+    console.log(brightness)
+  });
+}
+```
+
+### 자바스크립트에서 네이티브 모듈 사용하기
+`App.js`
+```js
+import {getBrightness, setBrightness} from './Brightness';
+
+const App: () => Node = () => {
+  const [value, setValue] = useState(-1);
+
+  const onPress = async () => {
+    const brightness = await getBrightness();
+    setValue(brightness);
+  };
+
+  const onPressLow = () => {
+    setBrightness(0.25);
+  };
+
+  const onPressHigh = () => {
+    setBrightness(1);
+  };
+
+  return (
+    <SafeAreaView style={styles.block}>
+      <Button title="Update Brightness" onPress={onPress} />
+      <View style={styles.textWrapper}>
+        <Text style={styles.text}>{value}</Text>
+      </View>
+      <Button title="Low Brightness" onPress={onPressLow} />
+      <Button title="High Brightness" onPress={onPressHigh} />
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  block: {
+    flex: 1,
+  },
+  textWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  text: {
+    fontSize: 64,
+  },
+});
+
+export default App;
+```
